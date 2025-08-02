@@ -1,9 +1,9 @@
 services:
-  postgres:
-    image: postgres:latest
-    container_name: fastapi_postgres
+  db:
+    image: postgres:17
+    container_name: db
     environment:
-      - POSTGRES_USER=myuser
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=mypassword
       - POSTGRES_DB=mydatabase
     volumes:
@@ -11,5 +11,19 @@ services:
     ports:
       - 5432:5432
   
+  mysql:
+    image: mysql
+    container_name: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=mydb
+      - MYSQL_USER=myuser
+      - MYSQL_PASSWORD=mypassword
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - 3306:3306
+
 volumes:
   my_pgdata:
+  mysql_data:
