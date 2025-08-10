@@ -10,11 +10,12 @@ bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(username: str, user_id: str, expires_delta: timedelta):
-    payload = {"sub": username, "id": user_id}
+    # store UUID as string in token payload for portability
+    payload = {"sub": username, "id": str(user_id)}
     expires = datetime.now(timezone.utc) + expires_delta
     payload.update({"exp": expires})
 
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def authenticate(db: Session, username: str, password: str):

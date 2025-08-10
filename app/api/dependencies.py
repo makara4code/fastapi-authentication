@@ -1,3 +1,4 @@
+from uuid import UUID
 from app.database import SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
@@ -27,12 +28,20 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
     try:
         payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         username = payload.get("sub")
-        user_id = payload.get("id")
+        user_id_str = payload.get("id")
 
-        if username is None or user_id is None:
+        if username is None or user_id_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            )
+
+        # Convert to UUID for querying
+        try:
+            user_id = UUID(user_id_str)
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )

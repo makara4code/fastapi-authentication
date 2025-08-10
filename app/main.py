@@ -5,8 +5,7 @@ from app.models import Base
 from app.database import engine
 from app.config import settings
 
-app = FastAPI()
-print("Here is envs:", settings.model_dump())
+app = FastAPI(title=settings.APP_NAME)
 
 app.include_router(api_router)
 Base.metadata.create_all(bind=engine)

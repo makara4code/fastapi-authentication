@@ -1,10 +1,147 @@
+# Docker Compose configuration for FastAPI Authentication application
+# This file defines a multi-service setup with PostgreSQL database and FastAPI backend
+# 
+# Docker Compose Documentation: https://docs.docker.com/compose/
+# Compose File Reference: https://docs.docker.com/compose/compose-file/
+
 services:
-  db:
+  # PostgreSQL database service
+  # Official PostgreSQL Docker image documentation: https://hub.docker.com/_/postgres
+  postgres:
+    # Use PostgreSQL version 17 - latest stable release
+    # Image versioning best practice: pin to specific version for reproducibility
+    # https://docs.docker.com/compose/compose-file/#image
     image: postgres:17
-    container_name: db
+    
+    # Custom container name for easier identification and networking
+    # Without this, Docker Compose generates a name like "project_postgres_1"
+    # https://docs.docker.com/compose/compose-file/#container_name
+    container_name: postgres
+    
+    # Health check to ensure database is ready before starting dependent services
+    # Critical for avoiding connection errors during application startup
+    # https://docs.docker.com/compose/compose-file/#healthcheck
+    healthcheck:
+      # pg_isready is PostgreSQL's built-in utility to check if server is ready
+      # Uses double $$ to escape environment variables in Docker Compose
+      # https://www.postgresql.org/docs/current/app-pg-isready.html
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      
+      # Check database health every 30 seconds
+      # Balance between responsiveness and resource usage
+      interval: 30s 
+      
+      # Consider service unhealthy after 5 consecutive failures
+      # Prevents false positives from temporary connection issues
+      retries: 5
+      
+      # Wait 30 seconds after container start before first health check
+      # Allows PostgreSQL initialization time (creating databases, users, etc.)
+      start_period: 30s
+      
+      # Maximum time to wait for each health check command
+      # Prevents hanging if database is unresponsive
+      timeout: 30s
+    
+    # Environment variables for PostgreSQL configuration
+    # These are standard PostgreSQL Docker image environment variables
+    # https://hub.docker.com/_/postgres (Environment Variables section)
     environment:
+      # Database superuser name - used for initial setup and connections
+      # Loaded from .env file via Docker Compose variable substitution
+      # https://docs.docker.com/compose/environment-variables/
       - POSTGRES_USER=${POSTGRES_USER}
+      
+      # Database superuser password - critical for security
+      # Should be set in .env file and never committed to version control
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      
+      # Initial database name to create on first startup
+      # Application will connect to this database
       - POSTGRES_DB=${POSTGRES_DB}
+    
+    # Volume mounting for data persistence
+    # https://docs.docker.com/compose/compose-file/#volumes
+    volumes:
+      # Mount named volume to PostgreSQL data directory
+      # Ensures database data survives container restarts and updates
+      # /var/lib/postgresql/data is the standard PostgreSQL data directory
+      - postgres_data:/var/lib/postgresql/data
+    
+    # Port mapping to expose PostgreSQL outside the container
+    # https://docs.docker.com/compose/compose-file/#ports
     ports:
-      - 5432:5432
+      # Map host port (from env var) to container port 5432 (PostgreSQL default)
+      # Allows external tools (pgAdmin, psql) to connect to database
+      # Format: "host_port:container_port"
+      - ${POSTGRES_PORT}:5432
+
+  # FastAPI backend service
+  # Contains the main application logic and API endpoints
+  backend:
+    # Custom image name for the built application
+    # Will be created from the Dockerfile in the current directory
+    image: backend
+    
+    # Service dependency configuration with health check condition
+    # https://docs.docker.com/compose/compose-file/#depends_on
+    depends_on:
+      postgres:
+        # Wait for postgres service to be healthy before starting backend
+        # Prevents database connection errors during application startup
+        condition: service_healthy
+        
+        # Restart backend if postgres service is restarted
+        # Ensures backend reconnects after database maintenance
+        restart: true
+    
+    # Build configuration for creating the Docker image
+    # https://docs.docker.com/compose/compose-file/#build
+    build:
+      # Build context - directory containing Dockerfile and application code
+      context: .
+      
+      # Dockerfile name (optional if using default "Dockerfile")
+      dockerfile: Dockerfile
+    
+    # Environment variables for the FastAPI application
+    # These are consumed by the application's configuration system (app/config.py)
+    environment:
+      # Application metadata and configuration
+      # Used for application identification and feature toggles
+      - APP_NAME=${APP_NAME}
+      - DEBUG=${DEBUG}
+      - ENVIRONMENT=${ENVIRONMENT}
+      
+      # JWT (JSON Web Token) authentication configuration
+      # Critical for secure user authentication and session management
+      # https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/
+      - SECRET_KEY=${SECRET_KEY}          # Cryptographic key for signing JWTs
+      - ALGORITHM=${ALGORITHM}            # Signing algorithm (e.g., HS256)
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}  # Token lifetime
+      
+      # Database connection settings for the FastAPI application
+      # These override any default values in app/config.py
+      # Uses Docker Compose service networking - 'postgres' resolves to postgres container IP
+      - POSTGRES_HOST=postgres            # Hostname (Docker service name)
+      - POSTGRES_PORT=5432               # Standard PostgreSQL port inside container
+      - POSTGRES_USER=${POSTGRES_USER}    # Database username (matches postgres service)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # Database password (matches postgres service)
+      - POSTGRES_DB=${POSTGRES_DB}        # Database name (matches postgres service)
+    
+    # Port mapping to expose FastAPI application
+    # https://docs.docker.com/compose/compose-file/#ports
+    ports:
+      # Map host port 8000 to container port 8000
+      # FastAPI development server default port
+      # Format: "host_port:container_port"
+      - 8000:8000
+
+# Named volumes for data persistence across container lifecycles
+# https://docs.docker.com/compose/compose-file/#volumes-top-level-element
+volumes:
+  # PostgreSQL data volume
+  # Managed by Docker, survives container removal
+  # Location: /var/lib/docker/volumes/project_postgres_data/_data (on Linux)
+  # Best practice: use named volumes instead of bind mounts for database data
+  postgres_data:
