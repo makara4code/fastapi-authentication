@@ -12,3 +12,29 @@ wheels/
 # env files
 .env
 .env.stage
+
+# Development databases
+test.db
+*.db
+
+# Docker volumes
+postgres_data/
+pgadmin_data/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Logs
+*.log
