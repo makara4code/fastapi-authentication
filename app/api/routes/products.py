@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,9 @@ async def list_products(db: SessionDep, current_user: CurrentUser):
 # POST /products/
 @router.post("/", response_model=ProductResponse, status_code=201)
 async def create_product(
-    payload: ProductCreate, db: SessionDep, current_user: CurrentUser
+    payload: ProductCreate,
+    db: SessionDep,
+    current_user: CurrentUser,
 ):
     product = Product(
         name=payload.name,
@@ -47,7 +49,11 @@ def _get_owned_product_or_404(db: Session, user_id: int, product_id: UUID) -> Pr
 
 # GET /products/{product_id}
 @router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(product_id: UUID, db: SessionDep, current_user: CurrentUser):
+async def get_product(
+    product_id: UUID,
+    db: SessionDep,
+    current_user: CurrentUser,
+):
     product = _get_owned_product_or_404(db, current_user.id, product_id)
     return product
 
@@ -55,7 +61,10 @@ async def get_product(product_id: UUID, db: SessionDep, current_user: CurrentUse
 # PUT /products/{product_id}
 @router.put("/{product_id}", response_model=ProductResponse)
 async def update_product(
-    product_id: UUID, payload: ProductUpdate, db: SessionDep, current_user: CurrentUser
+    product_id: UUID,
+    payload: ProductUpdate,
+    db: SessionDep,
+    current_user: CurrentUser,
 ):
     product = _get_owned_product_or_404(db, current_user.id, product_id)
 
@@ -77,7 +86,11 @@ async def update_product(
 
 # DELETE /products/{product_id}
 @router.delete("/{product_id}", status_code=204)
-async def delete_product(product_id: UUID, db: SessionDep, current_user: CurrentUser):
+async def delete_product(
+    product_id: UUID,
+    db: SessionDep,
+    current_user: CurrentUser,
+):
     product = _get_owned_product_or_404(db, current_user.id, product_id)
     db.delete(product)
     db.commit()

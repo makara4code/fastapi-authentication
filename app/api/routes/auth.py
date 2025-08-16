@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.api.dependencies import SessionDep
 from app.models import User
 from fastapi.security import OAuth2PasswordRequestForm
@@ -8,15 +8,29 @@ from app.services.auth import bcrypt_context, authenticate, create_access_token
 from app.schemas import Token, CreateUserRequest
 from app.config import settings
 
+# Step 1: Import slowapi
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Step 2: Initialize Limiter
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Two ways of defining dependency injection with same type name
 # FormDep = Annotated[OAuth2PasswordRequestForm, Depends()]
 # FormDep = Annotated[OAuth2PasswordRequestForm, Depends(OAuth2PasswordRequestForm)]
 
 
 # /auth/login
 @router.post("/token", response_model=Token)
-async def login(db: SessionDep, form: Annotated[OAuth2PasswordRequestForm, Depends()]):
+# Step 3: Apply limiter to login endpoint
+@limiter.limit("3/minute", error_message="Too many requests! try again later.")
+async def login(
+    request: Request,
+    db: SessionDep,
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+):
     user = authenticate(db, form.username, form.password)
 
     if not user:
