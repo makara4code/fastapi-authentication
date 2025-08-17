@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.models import Base
@@ -14,6 +15,18 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
 
 app = FastAPI(title=settings.APP_NAME)
 
+origins = ["http://localhost:5173"]
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
